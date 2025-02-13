@@ -40,36 +40,53 @@ std::vector<std::string> get_utf8_words(const std::string& str) {
 }
 
 // full-width character to half-width
-int full2half(std::string& text) {
-    std::string temp;
+int full2half(const std::string& full_str, std::string& half_str) {
 
-    for (size_t i = 0; i < text.size(); i++) {
-        if (((text[i] & 0xF0) ^ 0xE0) == 0) {
-            int old_char = (text[i] & 0xF) << 12 |
-                           ((text[i + 1] & 0x3F) << 6 | (text[i + 2] & 0x3F));
+    for (size_t i = 0; i < full_str.size(); i++) {
+        if (((full_str[i] & 0xF0) ^ 0xE0) == 0) {
+            int old_char = (full_str[i] & 0xF) << 12 |
+                           ((full_str[i + 1] & 0x3F) << 6 | (full_str[i + 2] & 0x3F));
 
             if (old_char == 0x3000) { // blank
                 char new_char = 0x20;
-                temp += new_char;
+                half_str += new_char;
             } else if (old_char == 0x3002) { // 。
                 char new_char = 0x2E;
-                temp += new_char;
+                half_str += new_char;
             } else if (old_char >= 0xFF01 && old_char <= 0xFF5E) { // full char
                 char new_char = old_char - 0xFEE0;
-                temp += new_char;
+                half_str += new_char;
             } else { // other 3 bytes char
-                temp += text[i];
-                temp += text[i + 1];
-                temp += text[i + 2];
+                half_str += full_str[i];
+                half_str += full_str[i + 1];
+                half_str += full_str[i + 2];
             }
 
             i = i + 2;
         } else {
-            temp += text[i];
+            half_str += full_str[i];
         }
     }
+    return 0;
+}
 
-    text = temp;
+int half2full(const std::string& half_str, std::string& full_str) {
+    for (size_t i = 0; i < half_str.size(); i++) {
+        unsigned char ch = half_str[i];
+
+        if (ch == 0x20) { // 半角空格 → 全角空格
+            full_str += static_cast<char>(0xE3);
+            full_str += static_cast<char>(0x80);
+            full_str += static_cast<char>(0x80);
+        } else if (ch >= 0x21 && ch <= 0x7E) { // 半角字符 → 全角字符
+            int full_char = ch + 0xFEE0;
+            full_str += static_cast<char>(0xEF);
+            full_str += static_cast<char>(0xBC | ((full_char >> 6) & 0x03));
+            full_str += static_cast<char>(0x80 | (full_char & 0x3F));
+        } else { // 其他字符保持不变
+            full_str += ch;
+        }
+    }
     return 0;
 }
 
@@ -84,11 +101,15 @@ void test_get_utf8_words() {
 }
 
 void test_full_to_half() {
-    std::string str = "ｈｅｌｌｏ，　你好，世界！";
+    std::string full_str = "ｈｅｌｌｏ，　你好，世界！";
     // 13 full-width characters
     // std::cout << strlen(str.c_str()) << std::endl; // 39
-    full2half(str);
-    std::cout << str << std::endl;
+    std::string half_str;
+    full2half(full_str,half_str );
+    std::cout << half_str << std::endl;
+    std::string full_str1;
+    half2full(half_str, full_str1);
+    std::cout<<full_str1<<std::endl;
 }
 
 int main() {
